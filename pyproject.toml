@@ -1,22 +1,38 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyharminv"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Harmonic inversion of signals: fit damped exponentials and Lorentzian lines with filter diagonalization and robust Padé approximants"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "BSD-3-Clause" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "LICENSES/*"]
 authors = [{ name = "Alex Eberspaecher" }]
+keywords = ["harmonic inversion", "filter diagonalization", "Padé approximation",
+            "spectral analysis", "Lorentzian", "damped sinusoids", "matrix pencil"]
 dependencies = ["numpy>=1.22", "scipy>=1.8"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
 ]
+
+[project.urls]
+Homepage = "https://github.com/aeberspaecher/pyharminv"
+Source = "https://github.com/aeberspaecher/pyharminv"
+Issues = "https://github.com/aeberspaecher/pyharminv/issues"
+Changelog = "https://github.com/aeberspaecher/pyharminv/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
@@ -25,6 +41,9 @@ examples = ["matplotlib", "jupyter"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pyharminv.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

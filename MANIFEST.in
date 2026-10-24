@@ -1,0 +1,10 @@
+# sdist: sources, tests, docs and examples; no reference PDFs, legacy code or caches
+include CHANGELOG.md
+graft tests
+graft docs
+graft examples
+prune docs/_build
+prune legacy
+prune references
+prune notebooks
+global-exclude __pycache__ *.py[cod] .pytest_cache .DS_Store

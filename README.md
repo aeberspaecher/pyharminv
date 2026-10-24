@@ -94,7 +94,7 @@ size `K` explicitly. 100 000 samples with 200 lines take about 5 s.
 than the Fourier resolution, to a noisy sum of damped cosines and plots the
 result:
 
-![example](examples/lorentz_fit.png)
+![example](https://raw.githubusercontent.com/aeberspaecher/pyharminv/main/examples/lorentz_fit.png)
 
 ## Notebooks
 
@@ -141,6 +141,17 @@ sphinx-build docs docs/_build/html
 
 The documentation covers the theory, the conventions, practical advice and
 the API.
+
+## Building a release
+
+```bash
+pip install build twine
+python -m build              # dist/pyharminv-<version>.tar.gz and .whl
+twine check dist/*
+twine upload dist/*          # needs a PyPI account and token
+```
+
+The version is set in `src/pyharminv/__init__.py`; see `CHANGELOG.md`.
 
 ## References
 
