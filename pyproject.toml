@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyharminv"
+version = "1.0.0"
+description = "Harmonic inversion of signals: fit damped exponentials and Lorentzian lines with filter diagonalization and robust Padé approximants"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Alex Eberspaecher" }]
+dependencies = ["numpy>=1.22", "scipy>=1.8"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+docs = ["sphinx>=7", "numpydoc", "matplotlib"]
+examples = ["matplotlib", "jupyter"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
