@@ -278,6 +278,75 @@ class HarmInvResult:
             s = 1j * self.amplitude / (w - self.omega)
         return s.sum(axis=-1)
 
+    def _poles_and_residues(self):
+        """Poles and residues of :meth:`spectrum`, mirror modes included."""
+        if self.real:
+            return (np.concatenate([self.omega, -np.conj(self.omega)]),
+                    np.concatenate([0.5j * self.amplitude,
+                                    0.5j * np.conj(self.amplitude)]))
+        return self.omega, 1j * self.amplitude
+
+    def zeros(self, residual=0.0, max_abs=None):
+        """Complex zeros of :meth:`spectrum`, the anti-resonances.
+
+        The spectrum of the fitted signal is a rational function, a sum of
+        poles ``r_k / (omega - omega_k)``. Where neighbouring terms cancel,
+        it has zeros. If the signal is the impulse response of a linear
+        system, these are the zeros of its transfer function: the
+        anti-resonances, the dips between resonances, with ``Re(z)`` their
+        position and ``-2 Im(z)`` their width.
+
+        The zeros are the finite eigenvalues of the pencil
+        ``([[diag(omega_k), 1], [r^T, residual]], diag(1, ..., 1, 0))``,
+        which avoids forming the numerator polynomial.
+
+        Parameters
+        ----------
+        residual : complex, optional
+            Constant added to the spectrum before solving, in the units of
+            :meth:`spectrum`. Unlike poles, zeros depend on *all* modes of
+            the system: modes outside the analysed range add a slowly
+            varying background that shifts the zeros. A constant
+            ``residual`` models that background near the zeros of interest,
+            like the residual terms of experimental modal analysis. It can
+            be estimated as the difference between a measured spectrum and
+            :meth:`spectrum` at a frequency away from the lines.
+        max_abs : float, optional
+            Discard zeros with ``abs(z) > max_abs``. Defaults to 100 times
+            the largest ``abs(omega)``; zeros far beyond all poles are not
+            determined by the fitted modes.
+
+        Returns
+        -------
+        numpy.ndarray
+            Zeros sorted by real part. For a real signal only zeros with
+            ``Re(z) >= 0`` are returned; their mirror images at
+            ``-conj(z)`` are implied, as for :attr:`omega`.
+        """
+        from scipy.linalg import eig
+
+        p, r = self._poles_and_residues()
+        n = len(p)
+        if n == 0:
+            return np.zeros(0, complex)
+        A = np.zeros((n + 1, n + 1), complex)
+        A[:n, :n] = np.diag(p)
+        A[:n, n] = 1
+        A[n, :n] = r
+        A[n, n] = residual
+        B = np.eye(n + 1)
+        B[n, n] = 0
+        alpha, beta = eig(A, B, right=False, homogeneous_eigvals=True)
+        scale = max(np.abs(p).max(), 1e-300)
+        if max_abs is None:
+            max_abs = 10 * scale
+        finite = np.abs(alpha) * 1e-12 < np.abs(beta) * scale
+        z = alpha[finite] / beta[finite]
+        z = z[np.abs(z) <= max_abs]
+        if self.real:
+            z = z[z.real >= 0]
+        return z[np.argsort(z.real)]
+
     def lorentzians(self):
         """Lorentzian line parameters of the modes.
 

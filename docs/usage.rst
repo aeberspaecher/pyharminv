@@ -42,6 +42,7 @@ quantities:
 ``reconstruct(t)``     the fitted signal
 ``spectrum(omega)``    the complex spectrum of the fitted signal
 ``select(...)``        subset of modes by amplitude, error, width or range
+``zeros()``            zeros of the spectrum (anti-resonances)
 =====================  =====================================================
 
 Conventions
@@ -116,6 +117,31 @@ is meant for signals of up to a few hundred samples. Two variants exist:
   :func:`~pyharminv.padeapprox`. It is exact for clean data, but with noise
   it uses only part of the record and its rank decision is fragile, so it
   internally uses ``tol / 100``.
+
+Anti-resonances
+---------------
+
+If the signal is the impulse response of a linear system, the spectrum
+returned by :meth:`~pyharminv.HarmInvResult.spectrum` is (the complex
+conjugate of) its frequency response function, a sum of poles
+:math:`r_k / (\omega - \omega_k)`. Besides the resonances (the poles) it
+can have sharp dips where neighbouring modes cancel, the anti-resonances.
+They are zeros of the rational function and do not appear as modes, but
+:meth:`~pyharminv.HarmInvResult.zeros` computes them from the fitted
+modes:
+
+.. code-block:: python
+
+   result = harminv(impulse_response, dt)
+   z = result.zeros()      # Re(z): positions of the dips, -2 Im(z): widths
+
+For a driving-point response (force and response at the same point) there
+is one anti-resonance between each pair of neighbouring resonances, at the
+resonances of the system clamped at that point; a transfer response can
+have none. Unlike a pole, a zero depends on *all* modes, including those
+outside the analysed range or removed by ``select``: keep the modes around
+the zeros of interest, or approximate the missing ones near the zeros by a
+constant ``residual``. See ``notebooks/04_anti_resonances.ipynb``.
 
 Refinement
 ----------
