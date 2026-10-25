@@ -53,6 +53,7 @@ result.center, result.width, result.Q        # Ω_k, Γ_k, Ω_k/Γ_k
 result.lorentzians()                         # centre, FWHM, height, area
 result.reconstruct(t)                        # fitted signal
 result.spectrum(np.linspace(0, 10, 1000))    # fitted complex spectrum
+result.zeros()                               # its zeros (anti-resonances)
 ```
 
 For a real signal only modes with `Re ω ≥ 0` are returned, and
@@ -98,7 +99,7 @@ result:
 
 ## Notebooks
 
-`notebooks/` contains three illustrated, executed notebooks:
+`notebooks/` contains four illustrated, executed notebooks:
 
 * `01_harmonic_inversion_basics.ipynb`: damped cosines, recovered
   parameters, Lorentzian lines versus the Fourier spectrum, and two lines
@@ -113,6 +114,11 @@ result:
   right: beyond the radius of convergence, branch cuts, pole location,
   divergent series, Froissart doublets and the robust algorithm, and the
   link to harmonic inversion.
+* `04_anti_resonances.ipynb`: anti-resonances (zeros of a frequency
+  response) from the fitted modes with `HarmInvResult.zeros()`: a damped
+  spring chain, driving-point versus transfer responses, the clamped-system
+  interpretation, a short noisy record where the FFT shows no dips, and
+  why zeros need all modes (residual terms).
 
 ```bash
 pip install -e .[examples]

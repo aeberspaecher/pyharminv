@@ -9,9 +9,9 @@ First Python 3 release, a rewrite of the earlier Python 2 `pyharminv`.
 * Least-squares Padé (matrix pencil) as the default Padé variant; the
   classical robust SVD algorithm is available as `pade_variant="robust"`.
 * `HarmInvResult` with Lorentzian parameters, error estimates, `select`,
-  `reconstruct`, `spectrum` and `refine` (nonlinear least squares with
-  error bars).
+  `reconstruct`, `spectrum`, `zeros` (anti-resonances) and `refine`
+  (nonlinear least squares with error bars).
 * `padeapprox`: Python translation of Chebfun's robust Padé algorithm.
 * Synthetic test signals, tests, Sphinx documentation, an example script
-  and three notebooks.
+  and four notebooks.
 * Fixed the sign convention and residue errors of the Python 2 version.

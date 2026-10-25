@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from scipy.optimize import curve_fit
 
-from pyharminv import (fdm_window, harminv, harminv_window, lorentzian,
+from pyharminv import (HarmInvResult, fdm_window, harminv, harminv_window, lorentzian,
                        synthetic_signal)
 from pyharminv.fdm import fdm_matrices
 from pyharminv.signals import random_modes
@@ -252,6 +252,108 @@ def test_lorentzian_helper():
     np.testing.assert_allclose(lorentzian(w, 1.0, 2.0, 3.0), [1.5, 3.0, 1.5])
     two = lorentzian(w, [0.0, 2.0], [1.0, 1.0], [1.0, 1.0])
     np.testing.assert_allclose(two, [1 + 1 / 17, 0.4, 1 + 1 / 17])
+
+
+# --- zeros (anti-resonances) -----------------------------------------------
+
+def spring_chain(masses, springs, alpha=0.004, beta=0.004):
+    """Mass, damping and stiffness matrices of a fixed-free spring chain."""
+    n = len(masses)
+    K = np.zeros((n, n))
+    for i, k in enumerate(springs):
+        K[i, i] += k
+        if i > 0:
+            K[i - 1, i - 1] += k
+            K[i - 1, i] -= k
+            K[i, i - 1] -= k
+    M = np.diag(masses)
+    return M, alpha * M + beta * K, K
+
+
+def eigenfrequencies(M, C, K):
+    """Complex frequencies omega = i s of M s^2 + C s + K, Re(omega) > 0."""
+    n = len(M)
+    A = np.block([[np.zeros((n, n)), np.eye(n)],
+                  [-np.linalg.solve(M, K), -np.linalg.solve(M, C)]])
+    w = 1j * np.linalg.eigvals(A)
+    return np.sort_complex(w[w.real > 0])
+
+
+def impulse_response(M, C, K, i, j, t):
+    """Displacement at DOF i after a unit impulse force at DOF j."""
+    n = len(M)
+    A = np.block([[np.zeros((n, n)), np.eye(n)],
+                  [-np.linalg.solve(M, K), -np.linalg.solve(M, C)]])
+    lam, V = np.linalg.eig(A)
+    b = np.zeros(2 * n)
+    b[n:] = np.linalg.solve(M, np.eye(n)[j])
+    r = V[i] * np.linalg.solve(V, b)
+    return (np.exp(np.outer(t, lam)) @ r).real
+
+
+@pytest.mark.parametrize("method", METHODS)
+def test_zeros_are_antiresonances_of_driving_point_response(method):
+    # the anti-resonances of H_jj are the resonances with DOF j clamped
+    M, C, K = spring_chain([1.0, 1.0, 1.0], [1.0, 1.5, 2.0])
+    dt = 0.25
+    t = dt * np.arange(4000 if method == "fdm" else 600)
+    for j in range(3):
+        x = impulse_response(M, C, K, j, j, t)
+        r = harminv(x, dt, omega_min=0.05, omega_max=4, method=method)
+        assert len(r) == 3
+        keep = [k for k in range(3) if k != j]
+        clamped = eigenfrequencies(*(X[np.ix_(keep, keep)] for X in (M, C, K)))
+        np.testing.assert_allclose(r.zeros(), clamped, rtol=0, atol=1e-7)
+        # the spectrum has a dip at each anti-resonance
+        dips = r.zeros().real
+        for shift in (-0.02, 0.02):
+            assert np.all(abs(r.spectrum(dips)) < abs(r.spectrum(dips + shift)))
+
+
+def test_zeros_of_transfer_response():
+    # the far end of a chain has no anti-resonance
+    M, C, K = spring_chain([1.0, 1.0, 1.0], [1.0, 1.5, 2.0])
+    dt = 0.25
+    t = dt * np.arange(4000)
+    r = harminv(impulse_response(M, C, K, 2, 0, t), dt, omega_min=0.05,
+                omega_max=4)
+    assert len(r) == 3 and len(r.zeros()) == 0
+
+
+def test_zeros_complex_signal():
+    # i/(w - p1) + i/(w - p2) vanishes halfway between the poles
+    r = HarmInvResult(np.array([1 - 0.01j, 2 - 0.03j]), np.ones(2),
+                      np.zeros(2))
+    np.testing.assert_allclose(r.zeros(), [1.5 - 0.02j], atol=1e-13)
+    # a constant background moves the zero: i/(w-1) + i/(w-2) + R = 0
+    R = 0.3j
+    z = r.zeros(residual=R)
+    assert len(z) == 2
+    np.testing.assert_allclose(1j / (z - r.omega[0]) + 1j / (z - r.omega[1])
+                               + R, 0, atol=1e-12)
+
+
+def test_zeros_residual_compensates_truncation():
+    M, C, K = spring_chain([1.0, 1.0, 1.0], [1.0, 1.5, 2.0])
+    dt = 0.25
+    t = dt * np.arange(4000)
+    full = harminv(impulse_response(M, C, K, 0, 0, t), dt, omega_min=0.05,
+                   omega_max=4)
+    low = full.select(omega_max=2)
+    exact = full.zeros()[0]
+    assert abs(low.zeros()[0] - exact) > 1e-2
+    w0 = 1.0
+    residual = full.spectrum(w0) - low.spectrum(w0)
+    assert abs(low.zeros(residual=residual)[0] - exact) < 3e-3
+
+
+def test_zeros_edge_cases():
+    empty = HarmInvResult(np.zeros(0, complex), np.zeros(0, complex),
+                          np.zeros(0))
+    assert len(empty.zeros()) == 0
+    one = HarmInvResult(np.array([2 - 0.1j]), np.array([1.0 + 0j]),
+                        np.zeros(1))
+    assert len(one.zeros()) == 0
 
 
 # --- the result object and input validation ---------------------------------
