@@ -30,7 +30,7 @@ which reaches the Cramér-Rao bound and gives error bars.
 pip install .            # or: pip install -e .[test,docs,examples]
 ```
 
-Requires Python ≥ 3.9, NumPy ≥ 1.22 and SciPy ≥ 1.8.
+Requires Python ≥ 3.10, NumPy ≥ 1.22 and SciPy ≥ 1.8.
 
 ## Quick start
 
@@ -88,6 +88,26 @@ A smaller `tol` (e.g. a tenth of the noise level) followed by `select` and
 `harminv` chooses frequency windows automatically. Restrict the search with
 `omega_min`/`omega_max`, or set `n_windows`, `window_width` or the basis
 size `K` explicitly. 100 000 samples with 200 lines take about 5 s.
+
+### Trends and filters
+
+`pyharminv.preprocessing` removes offsets and drifts and filters signals in
+a way that suits harmonic inversion:
+
+```python
+from pyharminv import detrend, highpass
+
+result = harminv(detrend(x), dt)          # remove a linear drift
+
+hp = highpass(dt, omega_c=1.0)            # linear-phase FIR filter
+y, t0 = hp.apply(x)                       # transient-free samples only
+result = hp.correct(harminv(y, dt, t0=t0)).select(omega_min=1.25)
+```
+
+Unlike recursive (IIR) or `filtfilt` filtering, the FIR filters leave no
+transients behind: the filtered signal is exactly the same sum of damped
+exponentials with amplitudes multiplied by the filter's response, which
+`correct` divides out. The price is the filter length in samples.
 
 ## Example
 
