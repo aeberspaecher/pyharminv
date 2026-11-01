@@ -30,7 +30,7 @@ which reaches the Cramér-Rao bound and gives error bars.
 pip install .            # or: pip install -e .[test,docs,examples]
 ```
 
-Requires Python ≥ 3.9, NumPy ≥ 1.22 and SciPy ≥ 1.8.
+Requires Python ≥ 3.10, NumPy ≥ 1.22 and SciPy ≥ 1.8.
 
 ## Quick start
 
