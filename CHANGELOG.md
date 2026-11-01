@@ -23,6 +23,6 @@ First Python 3 release, a rewrite of the earlier Python 2 `pyharminv`.
   `random_vibration` to simulate randomly driven mechanical systems.
 * `padeapprox`: Python translation of Chebfun's robust Padé algorithm.
 * Synthetic test signals, tests, Sphinx documentation, an example script
-  and six notebooks.
+  and seven notebooks.
 * Requires Python 3.10 or newer.
 * Fixed the sign convention and residue errors of the Python 2 version.
