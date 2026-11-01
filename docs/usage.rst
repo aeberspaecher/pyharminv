@@ -229,3 +229,39 @@ Example
 ``examples/lorentz_fit.py`` fits twelve lines, two of them closer than the
 Fourier resolution, to a noisy sum of damped cosines and produces the figure
 on the front page.
+
+Noise-driven systems: stochastic subspace identification
+--------------------------------------------------------
+
+Harmonic inversion needs a free decay. If a system can only be measured
+while it is driven by an unknown, broadband excitation (wind, traffic,
+operation, thermal noise), the response is not a sum of damped exponentials
+and :func:`~pyharminv.harminv` fails on it. Stochastic subspace
+identification (SSI) identifies the modes from such output-only data:
+
+.. code-block:: python
+
+   from pyharminv import remove_mean, ssi_cov, ssi_data, ssi_stabilization
+
+   y = remove_mean(y, axis=0)          # shape (n_samples, n_channels)
+   r = ssi_cov(y, dt, order=16, block_rows=40)
+   modes = r.select(max_rel_error=0.01, max_damping=0.2)
+   modes.omega, modes.damping_ratio, modes.mode_shape
+
+:func:`~pyharminv.ssi_cov` (covariance-driven) works on the estimated output
+correlations and is fast for long records; :func:`~pyharminv.ssi_data`
+(data-driven) projects the raw data and is slightly more accurate for short
+records, at a higher cost. Both return an :class:`~pyharminv.SSIResult`, a
+:class:`~pyharminv.HarmInvResult` of the output correlation function: for a
+system driven by white noise the correlations decay like a free response
+with the same poles. ``amplitude`` refers to the auto-correlation of a
+reference channel, so ``select``, ``spectrum`` and ``reconstruct`` work as
+for harmonic inversion; in addition the result has ``mode_shape``,
+``residue`` (all cross-correlations), ``damping_ratio``, ``psd`` and ``mac``.
+
+The model order (two per mode) should be chosen generously; spurious poles
+are removed with ``select``. ``error`` is the distance of each pole to the
+closest pole at order ``order + 2``: physical poles are stable, noise poles
+move. :func:`~pyharminv.ssi_stabilization` computes a full stabilization
+diagram from one SVD. Notebooks 05 and 06 explain the method and compare it
+with harmonic inversion.

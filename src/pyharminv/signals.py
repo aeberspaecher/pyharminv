@@ -2,7 +2,7 @@
 
 import numpy as np
 
-__all__ = ["lorentzian", "random_modes", "synthetic_signal"]
+__all__ = ["lorentzian", "random_modes", "random_vibration", "synthetic_signal"]
 
 
 def synthetic_signal(t, omega, amplitude, real=False, noise=0.0, rng=None):
@@ -86,3 +86,91 @@ def lorentzian(omega, center, fwhm, height=1.0):
     fwhm = np.atleast_1d(fwhm)
     height = np.atleast_1d(height)
     return (height / (1 + ((w - center) / (fwhm / 2)) ** 2)).sum(axis=-1)
+
+
+def random_vibration(M, C, K, dt, n_samples, input_dofs=None, output="displacement",
+                     force_std=1.0, noise=0.0, force=None, rng=None):
+    """Response of a mechanical system ``M x'' + C x' + K x = f`` to random forces.
+
+    The forces are white Gaussian noise, held constant over each sampling
+    interval, and the system is discretised exactly for such inputs (zero
+    order hold), so the result has no discretisation error.
+
+    Parameters
+    ----------
+    M, C, K : array_like
+        Mass, damping and stiffness matrices, shape ``(m, m)``, or scalars
+        for a single oscillator.
+    dt : float
+        Sampling interval.
+    n_samples : int
+        Number of samples.
+    input_dofs : array_like of int, optional
+        Degrees of freedom that are driven, each by an independent force.
+        Default: all.
+    output : {"displacement", "velocity", "acceleration"}, optional
+        Measured quantity at every degree of freedom.
+    force_std : float, optional
+        Standard deviation of each force sample.
+    noise : float, optional
+        Standard deviation of white measurement noise, relative to the
+        standard deviation of each output channel.
+    force : array_like, optional
+        Use these force samples, shape ``(n_samples, len(input_dofs))``,
+        instead of white noise, e.g. coloured noise or noise plus a
+        harmonic component. ``force_std`` is ignored then.
+    rng : numpy.random.Generator or int, optional
+
+    Returns
+    -------
+    y : numpy.ndarray
+        Shape ``(n_samples, m)``.
+    omega : numpy.ndarray
+        Complex angular frequencies ``Omega - 1j Gamma / 2`` of the modes
+        with ``Re(omega) >= 0``, in the convention of
+        :func:`~pyharminv.harminv`, sorted by real part.
+    """
+    from scipy.linalg import expm
+    from scipy.signal import lfilter
+
+    M, C, K = (np.atleast_2d(np.asarray(a, dtype=float)) for a in (M, C, K))
+    m = len(M)
+    rng = np.random.default_rng(rng)
+    dofs = np.arange(m) if input_dofs is None else np.atleast_1d(input_dofs)
+    B = np.zeros((m, len(dofs)))
+    B[dofs, np.arange(len(dofs))] = 1.0
+    Minv = np.linalg.inv(M)
+    Ac = np.block([[np.zeros((m, m)), np.eye(m)], [-Minv @ K, -Minv @ C]])
+    Bc = np.vstack([np.zeros((m, len(dofs))), Minv @ B])
+    # zero-order hold: [[Ad, Bd], [0, I]] = expm([[Ac, Bc], [0, 0]] dt)
+    n, p = Ac.shape[0], Bc.shape[1]
+    E = expm(np.block([[Ac, Bc], [np.zeros((p, n)), np.zeros((p, p))]]) * dt)
+    Ad, Bd = E[:n, :n], E[:n, n:]
+
+    if force is None:
+        f = force_std * rng.standard_normal((n_samples, p))
+    else:
+        f = np.asarray(force, dtype=float).reshape(n_samples, p)
+    # diagonalise Ad for a fast simulation with lfilter, one mode at a time
+    lam, V = np.linalg.eig(Ad)
+    u = np.linalg.solve(V, Bd @ f.T)              # modal inputs, n x N
+    z = np.empty_like(u)
+    for k in range(n):
+        # z_{t+1} = lam z_t + u_t
+        z[k] = lfilter([0, 1], [1, -lam[k]], u[k])
+    x = (V @ z).real.T                            # states, N x n
+    if output == "displacement":
+        y = x[:, :m]
+    elif output == "velocity":
+        y = x[:, m:]
+    elif output == "acceleration":
+        y = x @ (Ac[m:]).T + f @ (Minv @ B).T
+    else:
+        raise ValueError(f"unknown output {output!r}")
+    if noise:
+        y = y + noise * y.std(axis=0) * rng.standard_normal(y.shape)
+
+    s = np.linalg.eigvals(Ac)
+    omega = 1j * s
+    omega = omega[omega.real >= 0]
+    return y, omega[np.argsort(omega.real)]

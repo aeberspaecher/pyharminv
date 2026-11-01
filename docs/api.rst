@@ -46,6 +46,32 @@ Preprocessing
 .. autoclass:: FIRFilter
    :members:
 
+Stochastic subspace identification
+----------------------------------
+
+.. automodule:: pyharminv.subspace
+   :no-members:
+
+.. currentmodule:: pyharminv
+
+.. autofunction:: ssi
+
+.. autofunction:: ssi_cov
+
+.. autofunction:: ssi_data
+
+.. autoclass:: SSIResult
+   :members:
+
+.. autofunction:: ssi_stabilization
+
+.. autoclass:: Stabilization
+   :members:
+
+.. autofunction:: output_correlation
+
+.. autofunction:: mac
+
 Test signals
 ------------
 
@@ -54,3 +80,5 @@ Test signals
 .. autofunction:: lorentzian
 
 .. autofunction:: pyharminv.signals.random_modes
+
+.. autofunction:: random_vibration
