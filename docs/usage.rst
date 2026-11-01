@@ -237,7 +237,8 @@ Harmonic inversion needs a free decay. If a system can only be measured
 while it is driven by an unknown, broadband excitation (wind, traffic,
 operation, thermal noise), the response is not a sum of damped exponentials
 and :func:`~pyharminv.harminv` fails on it. Stochastic subspace
-identification (SSI) identifies the modes from such output-only data:
+identification (SSI) identifies the modes from such output-only data. The
+theory is explained in :doc:`theory_ssi`.
 
 .. code-block:: python
 
@@ -246,23 +247,120 @@ identification (SSI) identifies the modes from such output-only data:
    y = remove_mean(y, axis=0)          # shape (n_samples, n_channels)
    r = ssi_cov(y, dt, order=16, block_rows=40)
    modes = r.select(max_rel_error=0.01, max_damping=0.2)
+   print(modes)
    modes.omega, modes.damping_ratio, modes.mode_shape
 
-:func:`~pyharminv.ssi_cov` (covariance-driven) works on the estimated output
-correlations and is fast for long records; :func:`~pyharminv.ssi_data`
-(data-driven) projects the raw data and is slightly more accurate for short
-records, at a higher cost. Both return an :class:`~pyharminv.SSIResult`, a
-:class:`~pyharminv.HarmInvResult` of the output correlation function: for a
-system driven by white noise the correlations decay like a free response
-with the same poles. ``amplitude`` refers to the auto-correlation of a
-reference channel, so ``select``, ``spectrum`` and ``reconstruct`` work as
-for harmonic inversion; in addition the result has ``mode_shape``,
-``residue`` (all cross-correlations), ``damping_ratio``, ``psd`` and ``mac``.
+The signal has time along the first axis and one column per channel; a
+one-dimensional array is a single channel. Two variants are available:
 
-The model order (two per mode) should be chosen generously; spurious poles
-are removed with ``select``. ``error`` is the distance of each pole to the
-closest pole at order ``order + 2``: physical poles are stable, noise poles
-move. :func:`~pyharminv.ssi_stabilization` computes a full stabilization
-diagram from one SVD. Notebooks 05 and 06 explain the method and compare it
-with harmonic inversion; notebook 07 shows its limits under extreme
-measurement noise.
+* :func:`~pyharminv.ssi_cov` (covariance-driven) estimates the output
+  correlations by FFT and realizes a state-space model from them. After the
+  FFT its cost does not depend on the record length, so it suits long
+  records, many channels and exploring the order.
+* :func:`~pyharminv.ssi_data` (data-driven) projects future onto past
+  outputs with an LQ factorisation of the data. It is numerically more
+  robust and slightly more accurate for short records, at a cost that grows
+  linearly with the record length.
+
+:func:`~pyharminv.ssi` selects the variant with ``method="cov"`` or
+``method="data"`` (aliases ``"covariance"`` and ``"direct"``).
+
+Results
+~~~~~~~
+
+Both return an :class:`~pyharminv.SSIResult`. It is a
+:class:`~pyharminv.HarmInvResult` of the **output correlation function**,
+which for a system driven by white noise decays like a free response with
+the same poles. ``omega``, ``error``, ``center``, ``width``, ``Q``,
+``select``, ``spectrum`` and ``reconstruct`` therefore mean what they mean
+for harmonic inversion; ``amplitude`` holds the coefficients of the
+auto-correlation of the reference channel (``ref_channel``, default 0).
+In addition:
+
+==========================  ================================================
+``natural_frequency``       :math:`|\omega_k|`, the undamped frequency
+``damping_ratio``           :math:`\zeta_k = -\mathrm{Im}\,\omega_k / |\omega_k|`
+``mode_shape``              complex mode shapes, shape ``(K, n_channels)``,
+                            largest component 1
+``residue``                 coefficients of all correlations,
+                            shape ``(K, n_channels, n_channels)``
+``correlation(tau)``        model correlation matrices for lags ``tau``
+``psd(omega, full=False)``  model power spectral density (two-sided, per
+                            unit angular frequency); ``2 * psd(2 pi f)``
+                            compares with :func:`scipy.signal.welch`
+``mac(other=None)``         modal assurance criterion between mode shapes
+``select(...)``             as for harmonic inversion, plus bounds
+                            ``min_damping``, ``max_damping`` on the
+                            damping ratio
+``order``, ``info``         model order; singular values, ``A``, ``C``,
+                            ``G``, number of block rows
+==========================  ================================================
+
+The conventions are those of a real signal in harmonic inversion: only
+poles with :math:`\mathrm{Re}\,\omega \ge 0` are listed, and
+:math:`R(\tau) = \mathrm{Re} \sum_k M_k e^{-i\omega_k\tau}` for
+:math:`\tau \ge \Delta t` with the residue matrices :math:`M_k`. At lag
+zero the measured correlation also contains the variance of the measurement
+noise, which the model leaves out.
+
+Model order and spurious poles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The order is the dimension of the state: two per oscillating mode. Choose
+it generously, about twice what the expected modes need, and remove the
+spurious poles afterwards:
+
+* ``error`` is the distance of each pole to the closest pole at order
+  ``order + 2``. Physical poles barely move, noise poles jump; keep poles
+  with ``max_rel_error`` of about ``0.01``.
+* Noise poles are often strongly damped (``max_damping``); harmonic
+  components of the excitation have almost no damping (``min_damping``).
+* Poles that hardly contribute to the reference correlation have a small
+  ``magnitude`` (``min_magnitude``).
+
+Without ``order``, a heuristic places it after the last large drop of the
+singular values (``info["singular_values"]``). The reliable tool is the
+stabilization diagram, which identifies the poles for a range of orders
+from a single SVD:
+
+.. code-block:: python
+
+   st = ssi_stabilization(y, dt, range(2, 61, 2), block_rows=40)
+   st.plot()                                  # needs matplotlib
+   order, omega, zeta, stable = st.poles(stable_only=True)
+
+A pole is stable if a pole at the previous order matches its natural
+frequency (``freq_tol``, default 1 %), damping ratio (``damping_tol``, 5 %)
+and, for several channels, mode shape (``mac_tol``, MAC 0.98). Physical
+modes form vertical lines of stable poles.
+
+Block rows and sampling
+~~~~~~~~~~~~~~~~~~~~~~~
+
+``block_rows`` (:math:`i`) sets the longest lag, :math:`(2i-1)\,\Delta t`,
+and the largest order, :math:`(i-1)` times the number of channels.
+:math:`i\,\Delta t` should cover at least one period of the slowest mode
+of interest; 20 to 100 rows are typical. Sample, or decimate, to a few
+times the highest frequency of interest: strong oversampling crowds the
+poles near :math:`\lambda = 1` and requires many block rows.
+
+Excitation and noise
+~~~~~~~~~~~~~~~~~~~~
+
+* Remove the mean and drifts first (:func:`~pyharminv.remove_mean`,
+  :func:`~pyharminv.detrend`); an offset is a pole at zero frequency.
+* White measurement noise does not bias SSI, since it only enters the
+  correlation at lag zero, but it inflates the statistical error; at very
+  low signal-to-noise ratios the required record length grows steeply.
+  Do not band-pass filter narrowly, which colours the noise.
+* A coloured excitation adds poles of its own, usually strongly damped. A
+  harmonic component appears as an undamped pole.
+* Several channels separate closely spaced modes by their shapes, which a
+  single channel cannot.
+* The damping ratio of a randomly excited system is known only to a
+  statistical error that decreases like :math:`1/\sqrt{T}`. If a free
+  decay can be measured, harmonic inversion of it is far more accurate.
+
+Notebooks 05 to 07 illustrate all of this: the method step by step, the
+choice between SSI-Cov, SSI-Data and harmonic inversion, and the limits
+under extreme measurement noise.

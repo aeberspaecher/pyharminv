@@ -1,5 +1,5 @@
-Theory
-======
+Theory: harmonic inversion
+==========================
 
 The harmonic inversion problem
 ------------------------------
