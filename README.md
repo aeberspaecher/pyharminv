@@ -1,33 +1,62 @@
 # pyharminv
 
-Harmonic inversion of signals in Python: decompose a sampled signal into
-damped complex exponentials
+[![tests](https://github.com/aeberspaecher/pyharminv/actions/workflows/tests.yml/badge.svg)](https://github.com/aeberspaecher/pyharminv/actions/workflows/tests.yml)
+[![docs](https://github.com/aeberspaecher/pyharminv/actions/workflows/docs.yml/badge.svg)](https://aeberspaecher.github.io/pyharminv/)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://github.com/aeberspaecher/pyharminv/blob/main/pyproject.toml)
+[![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-green)](https://github.com/aeberspaecher/pyharminv/blob/main/LICENSE)
+
+**Harmonic inversion of signals in Python.** pyharminv decomposes a sampled
+signal into damped complex exponentials
 
     c(t) = Σ_k d_k exp(-i ω_k t),    ω_k = Ω_k − i Γ_k / 2,
 
-and thereby fit Lorentzian lines (centre Ω_k, full width Γ_k) to its
+and thereby fits Lorentzian lines (centre Ω_k, full width Γ_k) to its
 spectrum. Unlike a Fourier transform, harmonic inversion is not limited by
 the Fourier resolution `2π/T`: it resolves overlapping lines and finds
 widths and amplitudes from short signals.
 
-Two solvers are included:
+📖 **Documentation:** <https://aeberspaecher.github.io/pyharminv/>
 
-* **Filter diagonalization** (default, Mandelshtam & Taylor 1997) splits the
-  frequency range into windows, each solved from the *whole* signal. It
-  scales to long signals with hundreds of lines and is robust to noise.
-* **Padé approximants** (Wiersig & Main 2008) fit the whole band at once,
-  for signals of up to a few hundred samples. The default least-squares
-  variant (matrix pencil, Hua & Sarkar 1990) uses all samples and is as
-  accurate as FDM under noise; `pade_variant="robust"` selects the classical
-  SVD-based algorithm of Gonnet, Güttel & Trefethen (2013).
+![Twelve Lorentzian lines, two of them closer than the Fourier resolution, fitted to a noisy signal](https://raw.githubusercontent.com/aeberspaecher/pyharminv/main/examples/lorentz_fit.png)
 
-`HarmInvResult.refine` polishes either result by nonlinear least squares,
-which reaches the Cramér-Rao bound and gives error bars.
+## Features
+
+* **Harmonic inversion** (`harminv`) with two solvers:
+  * *Filter diagonalization* (default, Mandelshtam & Taylor 1997) splits the
+    frequency range into windows, each solved from the whole signal. It
+    scales to long signals with hundreds of lines and is robust to noise.
+  * *Padé approximants* (Wiersig & Main 2008) fit the whole band at once,
+    for signals of up to a few hundred samples, either by least squares
+    (matrix pencil, Hua & Sarkar 1990) or with the classical robust SVD
+    algorithm of Gonnet, Güttel & Trefethen (2013).
+* **Results you can use directly:** Lorentzian parameters, Q factors, error
+  estimates for every mode, mode selection, reconstruction, the fitted
+  spectrum and its zeros (anti-resonances).
+* **Refinement** by nonlinear least squares, which reaches the Cramér-Rao
+  bound and gives error bars.
+* **Robust Padé approximation** (`padeapprox`) as a general tool, translated
+  from Chebfun.
+* **Preprocessing:** detrending and linear-phase FIR low-, high- and
+  band-pass filters that leave no transients and whose effect on the
+  amplitudes is undone exactly.
+* **Stochastic subspace identification** (SSI-Cov and SSI-Data) for systems
+  driven by unmeasured broadband noise (operational modal analysis), with
+  stabilization diagrams, mode shapes, damping ratios and the MAC.
 
 ## Installation
 
+pyharminv is not on PyPI yet. Install it from GitHub:
+
 ```bash
-pip install .            # or: pip install -e .[test,docs,examples]
+pip install git+https://github.com/aeberspaecher/pyharminv
+```
+
+or from a clone, with the optional extras for tests, docs and notebooks:
+
+```bash
+git clone https://github.com/aeberspaecher/pyharminv
+cd pyharminv
+pip install -e ".[test,docs,examples]"
 ```
 
 Requires Python ≥ 3.10, NumPy ≥ 1.22 and SciPy ≥ 1.8.
@@ -61,38 +90,21 @@ For a real signal only modes with `Re ω ≥ 0` are returned, and
 
 ### Noisy data
 
-Set `tol` to the relative noise level of the data (noise standard deviation
-divided by the rms of the signal), then drop spurious weak modes:
+Set `tol` to the relative noise level (noise standard deviation divided by
+the rms of the signal), drop spurious weak modes, and refine the rest:
 
 ```python
 result = harminv(x, dt, tol=1e-3)
 lines = result.select(min_magnitude=0.05, max_rel_error=1e-3)
-```
-
-Every mode carries an error estimate (`result.error`); genuine lines have
-much smaller errors than noise-induced ones. Avoid long stretches of pure
-noise after the signal has decayed: they add noise but no information.
-
-For the best accuracy, refine the selected lines:
-
-```python
 fit = lines.refine(x, dt)
 fit.omega, fit.info["omega_std"]   # maximum-likelihood estimate, 1σ errors
 ```
 
-A smaller `tol` (e.g. a tenth of the noise level) followed by `select` and
-`refine` resolves lines closer than the Fourier resolution at moderate SNR.
-
-### Long signals
-
-`harminv` chooses frequency windows automatically. Restrict the search with
-`omega_min`/`omega_max`, or set `n_windows`, `window_width` or the basis
-size `K` explicitly. 100 000 samples with 200 lines take about 5 s.
+Long signals need no special treatment: `harminv` chooses frequency windows
+automatically (100 000 samples with 200 lines take about 5 s). Restrict the
+search with `omega_min`/`omega_max` if only a band is of interest.
 
 ### Trends and filters
-
-`pyharminv.preprocessing` removes offsets and drifts and filters signals in
-a way that suits harmonic inversion:
 
 ```python
 from pyharminv import detrend, highpass
@@ -104,16 +116,13 @@ y, t0 = hp.apply(x)                       # transient-free samples only
 result = hp.correct(harminv(y, dt, t0=t0)).select(omega_min=1.25)
 ```
 
-Unlike recursive (IIR) or `filtfilt` filtering, the FIR filters leave no
-transients behind: the filtered signal is exactly the same sum of damped
-exponentials with amplitudes multiplied by the filter's response, which
-`correct` divides out. The price is the filter length in samples.
+The filtered signal is exactly the same sum of damped exponentials with the
+amplitudes multiplied by the filter response, which `correct` divides out.
 
 ### Noise-driven systems: stochastic subspace identification
 
-If the system cannot decay freely but is driven by unknown broadband noise
-(operational modal analysis), use stochastic subspace identification on
-the measured response, one column per channel:
+If the system cannot decay freely but is driven by unknown broadband noise,
+identify its modes from the measured response (one column per channel):
 
 ```python
 from pyharminv import ssi_cov, ssi_data, ssi_stabilization
@@ -126,93 +135,58 @@ ssi_data(y, dt, order=16, block_rows=40)          # data-driven SSI
 ssi_stabilization(y, dt, range(2, 61, 2)).plot()  # stabilization diagram
 ```
 
-`SSIResult` is a `HarmInvResult` of the output correlation function (which
-decays like a free response for white-noise excitation), so `select`,
-`spectrum` and `reconstruct` work as usual, plus mode shapes, damping
-ratios, the model PSD and the MAC.
+### Padé approximation
 
-## Example
+```python
+from pyharminv import padeapprox
 
-`examples/lorentz_fit.py` fits twelve Lorentzian lines, including two closer
-than the Fourier resolution, to a noisy sum of damped cosines and plots the
-result:
-
-![example](https://raw.githubusercontent.com/aeberspaecher/pyharminv/main/examples/lorentz_fit.png)
-
-## Notebooks
-
-`notebooks/` contains seven illustrated, executed notebooks:
-
-* `01_harmonic_inversion_basics.ipynb`: damped cosines, recovered
-  parameters, Lorentzian lines versus the Fourier spectrum, and two lines
-  closer than the Fourier resolution.
-* `02_noise_and_long_signals.ipynb`: noisy data, the choice of `tol`,
-  separating spurious modes, 100 lines in 50 000 samples, frequency
-  windows; how far the signal-to-noise ratio can go (Cramér-Rao bound,
-  `refine`, detection limit, super-resolution versus SNR, record length);
-  and Padé in depth (pole pictures, rank decision, classical versus
-  least-squares Padé, FDM versus Padé).
-* `03_pade_approximation.ipynb`: Padé approximation as a tool in its own
-  right: beyond the radius of convergence, branch cuts, pole location,
-  divergent series, Froissart doublets and the robust algorithm, and the
-  link to harmonic inversion.
-* `04_anti_resonances.ipynb`: anti-resonances (zeros of a frequency
-  response) from the fitted modes with `HarmInvResult.zeros()`: a damped
-  spring chain, driving-point versus transfer responses, the clamped-system
-  interpretation, a short noisy record where the FFT shows no dips, and
-  why zeros need all modes (residual terms).
-* `05_stochastic_subspace_identification.ipynb`: modes of a system driven
-  by unknown broadband noise: why harmonic inversion of the raw response
-  fails and the correlation function helps, covariance-driven SSI step by
-  step, the stabilization diagram, mode shapes, the model spectrum and
-  data-driven SSI.
-* `06_choosing_an_identification_method.ipynb`: free decay with `harminv`
-  versus SSI of a random response, SSI-Cov versus SSI-Data (accuracy
-  versus record length, cost), closely spaced modes and several channels,
-  harmonic and coloured excitation, and a decision table.
-* `07_ssi_extreme_noise.ipynb`: SSI with measurement noise up to 30 times
-  the signal (−30 dB): why white noise does not bias SSI, identification at
-  −20 dB, error versus noise level and record length, and what helps
-  (decimation, more channels) or hurts (narrow band-pass filtering).
-
-```bash
-pip install -e .[examples]
-jupyter notebook notebooks/
+r = padeapprox(np.exp, 4, 4)     # from a function or its Taylor coefficients
+r(0.5), r.poles, r.residues, r.zeros
 ```
 
-## Tests
+## Documentation and notebooks
+
+The [documentation](https://aeberspaecher.github.io/pyharminv/) covers
+[usage](https://aeberspaecher.github.io/pyharminv/usage.html),
+[theory and conventions](https://aeberspaecher.github.io/pyharminv/theory.html),
+the [API](https://aeberspaecher.github.io/pyharminv/api.html) and renders
+the executed notebooks from [`notebooks/`](https://github.com/aeberspaecher/pyharminv/tree/main/notebooks):
+
+| Notebook | Topic |
+| --- | --- |
+| [01 Harmonic inversion basics](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/01_harmonic_inversion_basics.ipynb) | Damped cosines, Lorentzian lines versus the Fourier spectrum, lines closer than the Fourier resolution |
+| [02 Noise and long signals](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/02_noise_and_long_signals.ipynb) | Choosing `tol`, spurious modes, 100 lines in 50 000 samples, Cramér-Rao bound and `refine`, FDM versus Padé |
+| [03 Padé approximation](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/03_pade_approximation.ipynb) | Analytic continuation, branch cuts, divergent series, Froissart doublets |
+| [04 Anti-resonances](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/04_anti_resonances.ipynb) | Zeros of a frequency response from the fitted modes |
+| [05 Stochastic subspace identification](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/05_stochastic_subspace_identification.ipynb) | SSI-Cov step by step, stabilization diagram, mode shapes, SSI-Data |
+| [06 Choosing an identification method](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/06_choosing_an_identification_method.ipynb) | `harminv` versus SSI-Cov versus SSI-Data, with a decision table |
+| [07 SSI under extreme noise](https://github.com/aeberspaecher/pyharminv/blob/main/notebooks/07_ssi_extreme_noise.ipynb) | Identification with measurement noise up to 30 times the signal |
+
+`examples/lorentz_fit.py` produces the figure above.
+
+## Development
 
 ```bash
-pip install -e .[test]
-pytest
+pip install -e ".[test,docs]"
+pytest                                    # run the test suite
+sphinx-build -W docs docs/_build/html     # build the documentation
 ```
 
 The tests use synthetic signals with known frequencies, widths and
-amplitudes: clean and noisy, real and complex, many lines in long signals,
-overlapping lines, lines on window boundaries, and Lorentzian fits to the
-Fourier spectrum. The Padé core is tested against known approximants and the
-example from `pade_test.m`.
+amplitudes (clean and noisy, real and complex, long signals with many
+lines, overlapping lines). The documentation is built and published to
+GitHub Pages by the `docs` workflow on every push to `main`.
 
-## Documentation
-
-```bash
-pip install -e .[docs]
-sphinx-build docs docs/_build/html
-```
-
-The documentation covers the theory, the conventions, practical advice and
-the API.
-
-## Building a release
+To build a release:
 
 ```bash
 pip install build twine
-python -m build              # dist/pyharminv-<version>.tar.gz and .whl
-twine check dist/*
-twine upload dist/*          # needs a PyPI account and token
+python -m build && twine check dist/*
 ```
 
-The version is set in `src/pyharminv/__init__.py`; see `CHANGELOG.md`.
+The version is set in `src/pyharminv/__init__.py`; see
+[`CHANGELOG.md`](https://github.com/aeberspaecher/pyharminv/blob/main/CHANGELOG.md). Bug reports and pull requests are welcome on
+the [issue tracker](https://github.com/aeberspaecher/pyharminv/issues).
 
 ## References
 
@@ -229,7 +203,7 @@ The version is set in `src/pyharminv/__init__.py`; see `CHANGELOG.md`.
 
 ## License
 
-BSD 3-clause, see `LICENSE`. `src/pyharminv/pade.py` is a translation of `padeapprox.m` from
-[Chebfun](http://www.chebfun.org) (BSD 3-clause, see `LICENSES/`).
-The earlier Python 2 code and the reference material are kept in `legacy/`
-and `references/`.
+BSD 3-clause, see [`LICENSE`](https://github.com/aeberspaecher/pyharminv/blob/main/LICENSE). `src/pyharminv/pade.py` is a
+translation of `padeapprox.m` from [Chebfun](https://www.chebfun.org)
+(BSD 3-clause, see [`LICENSES/`](https://github.com/aeberspaecher/pyharminv/tree/main/LICENSES)). The earlier Python 2 code and
+the reference material are kept in `legacy/` and `references/`.
