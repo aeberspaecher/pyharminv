@@ -8,10 +8,13 @@ its spectrum. See :func:`harminv` for the main entry point.
 from .fdm import fdm_window
 from .core import HarmInvResult, harminv, harminv_window
 from .pade import PadeResult, padeapprox, taylor_coeffs
+from .preprocessing import (FIRFilter, bandpass, detrend, highpass, lowpass,
+                            remove_mean)
 from .signals import lorentzian, synthetic_signal
 
 __version__ = "1.0.0"
 
-__all__ = ["HarmInvResult", "PadeResult", "fdm_window", "harminv", "harminv_window",
-           "lorentzian", "padeapprox", "synthetic_signal", "taylor_coeffs",
-           "__version__"]
+__all__ = ["FIRFilter", "HarmInvResult", "PadeResult", "bandpass", "detrend",
+           "fdm_window", "harminv", "harminv_window", "highpass", "lorentzian",
+           "lowpass", "padeapprox", "remove_mean", "synthetic_signal",
+           "taylor_coeffs", "__version__"]

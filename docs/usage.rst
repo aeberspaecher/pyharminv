@@ -45,6 +45,11 @@ quantities:
 ``zeros()``            zeros of the spectrum (anti-resonances)
 =====================  =====================================================
 
+Signals can be prepared with :func:`~pyharminv.detrend` and the FIR filters
+:func:`~pyharminv.lowpass`, :func:`~pyharminv.highpass` and
+:func:`~pyharminv.bandpass`, see `Preprocessing: offsets, trends and
+filters`_.
+
 Conventions
 -----------
 
@@ -142,6 +147,64 @@ have none. Unlike a pole, a zero depends on *all* modes, including those
 outside the analysed range or removed by ``select``: keep the modes around
 the zeros of interest, or approximate the missing ones near the zeros by a
 constant ``residual``. See ``notebooks/04_anti_resonances.ipynb``.
+
+Preprocessing: offsets, trends and filters
+------------------------------------------
+
+A constant offset is just a mode at zero frequency and needs no treatment.
+A drift, however, is a double pole at zero that a sum of simple exponentials
+cannot represent; it biases the fitted lines. Remove it with
+:func:`~pyharminv.detrend` (least-squares polynomial, ``order=1`` by
+default):
+
+.. code-block:: python
+
+   from pyharminv import detrend, harminv
+
+   result = harminv(detrend(x), dt)
+
+A polynomial fit also absorbs part of lines whose period is comparable to
+the record length, so keep the order low. What is left of the drift appears
+as a weak mode very close to zero frequency, which
+``select(omega_min=...)`` removes.
+
+Strong lines outside the band of interest, or a drift close to slow lines,
+are better removed with a filter. The usual recursive (IIR) filters are
+unsuited to harmonic inversion: their start-up transient decays with the
+filter's own poles, which then show up as additional modes, and zero-phase
+filtering adds a transient at the end that looks like a growing mode.
+:func:`~pyharminv.lowpass`, :func:`~pyharminv.highpass` and
+:func:`~pyharminv.bandpass` return linear-phase FIR filters
+(:class:`~pyharminv.FIRFilter`) that only keep the output samples for which
+the filter fully overlaps the data. The result is *exactly* a sum of the
+same damped exponentials, with frequencies and widths unchanged and
+amplitudes multiplied by the frequency response :math:`H(\omega_k)`, which
+:meth:`~pyharminv.FIRFilter.correct` divides out again:
+
+.. code-block:: python
+
+   from pyharminv import harminv, highpass
+
+   hp = highpass(dt, omega_c=1.0)         # transition band 0.75 ... 1.25
+   y, t0 = hp.apply(x)                    # len(y) == len(x) - len(hp) + 1
+   result = hp.correct(harminv(y, dt, t0=t0)).select(omega_min=1.25)
+
+The filter costs ``len(hp) - 1`` samples, half of them at the start where
+a decaying signal is strongest. Its length is set by the width of the
+transition band (``transition``, by default half the cut-off frequency) and
+the stop-band attenuation (``attenuation``, 60 dB by default), roughly
+``(attenuation - 8) / (2.285 * transition * dt)``: make the transition as
+wide as the spacing of the lines allows. Amplitudes refer to the returned
+``t0``, the time of the first output sample. Modes in the stop band are
+attenuated, not removed; after ``correct`` they carry large, meaningless
+amplitudes, so select the pass band by frequency. The high-pass and
+two-sided band-pass filters remove constants and linear trends exactly.
+For complex signals, ``bandpass(..., one_sided=True)`` passes only the given
+band and not its mirror image at negative frequencies.
+
+Filtering is not needed just to restrict the analysis to a band:
+``omega_min`` and ``omega_max`` of :func:`~pyharminv.harminv` do that
+without losing samples.
 
 Refinement
 ----------

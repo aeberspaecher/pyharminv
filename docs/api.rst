@@ -25,6 +25,27 @@ Padé approximation
 
 .. autofunction:: taylor_coeffs
 
+Preprocessing
+-------------
+
+.. automodule:: pyharminv.preprocessing
+   :no-members:
+
+.. currentmodule:: pyharminv
+
+.. autofunction:: remove_mean
+
+.. autofunction:: detrend
+
+.. autofunction:: lowpass
+
+.. autofunction:: highpass
+
+.. autofunction:: bandpass
+
+.. autoclass:: FIRFilter
+   :members:
+
 Test signals
 ------------
 

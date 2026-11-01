@@ -11,6 +11,10 @@ First Python 3 release, a rewrite of the earlier Python 2 `pyharminv`.
 * `HarmInvResult` with Lorentzian parameters, error estimates, `select`,
   `reconstruct`, `spectrum`, `zeros` (anti-resonances) and `refine`
   (nonlinear least squares with error bars).
+* `pyharminv.preprocessing`: `remove_mean`, `detrend` (polynomial trends)
+  and linear-phase FIR `lowpass`, `highpass` and `bandpass` filters that
+  are exact for sums of damped exponentials (no transients) and whose
+  effect on the amplitudes is undone by `FIRFilter.correct`.
 * `padeapprox`: Python translation of Chebfun's robust Padé algorithm.
 * Synthetic test signals, tests, Sphinx documentation, an example script
   and four notebooks.
