@@ -35,7 +35,7 @@ Changelog = "https://github.com/aeberspaecher/pyharminv/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
-docs = ["sphinx>=7", "numpydoc", "matplotlib"]
+docs = ["sphinx>=7", "numpydoc", "matplotlib", "furo", "myst-nb>=1"]
 examples = ["matplotlib", "jupyter"]
 
 [tool.setuptools.packages.find]
