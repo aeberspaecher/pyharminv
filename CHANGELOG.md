@@ -14,4 +14,5 @@ First Python 3 release, a rewrite of the earlier Python 2 `pyharminv`.
 * `padeapprox`: Python translation of Chebfun's robust Padé algorithm.
 * Synthetic test signals, tests, Sphinx documentation, an example script
   and four notebooks.
+* Requires Python 3.10 or newer.
 * Fixed the sign convention and residue errors of the Python 2 version.
