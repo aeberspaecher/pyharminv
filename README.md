@@ -141,7 +141,7 @@ result:
 
 ## Notebooks
 
-`notebooks/` contains six illustrated, executed notebooks:
+`notebooks/` contains seven illustrated, executed notebooks:
 
 * `01_harmonic_inversion_basics.ipynb`: damped cosines, recovered
   parameters, Lorentzian lines versus the Fourier spectrum, and two lines
@@ -170,6 +170,10 @@ result:
   versus SSI of a random response, SSI-Cov versus SSI-Data (accuracy
   versus record length, cost), closely spaced modes and several channels,
   harmonic and coloured excitation, and a decision table.
+* `07_ssi_extreme_noise.ipynb`: SSI with measurement noise up to 30 times
+  the signal (−30 dB): why white noise does not bias SSI, identification at
+  −20 dB, error versus noise level and record length, and what helps
+  (decimation, more channels) or hurts (narrow band-pass filtering).
 
 ```bash
 pip install -e .[examples]

@@ -264,4 +264,5 @@ are removed with ``select``. ``error`` is the distance of each pole to the
 closest pole at order ``order + 2``: physical poles are stable, noise poles
 move. :func:`~pyharminv.ssi_stabilization` computes a full stabilization
 diagram from one SVD. Notebooks 05 and 06 explain the method and compare it
-with harmonic inversion.
+with harmonic inversion; notebook 07 shows its limits under extreme
+measurement noise.
