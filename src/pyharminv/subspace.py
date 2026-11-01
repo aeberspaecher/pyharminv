@@ -5,8 +5,9 @@ free decay or an impulse response. Many systems can only be observed while
 they are driven, for example a bridge in the wind, a machine in operation
 or a resonator excited by thermal noise. The measured response is then
 noise filtered by the system, not a decay, and the excitation is unknown.
-Stochastic subspace identification finds the modes of such a system from
-the output alone (*operational* or *output-only* modal analysis).
+Stochastic subspace identification [1]_, [2]_, [3]_ finds the modes of such
+a system from the output alone (*operational* or *output-only* modal
+analysis).
 
 The model is a linear, time-invariant system driven by unmeasured white
 noise, in discrete time ``t_k = k dt``,

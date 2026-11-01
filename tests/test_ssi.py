@@ -6,7 +6,7 @@ from scipy.signal import welch
 from pyharminv import (HarmInvResult, SSIResult, mac, output_correlation,
                        random_vibration, ssi, ssi_cov, ssi_data,
                        ssi_stabilization)
-from pyharminv.ssi import _DataRealization
+from pyharminv.subspace import _DataRealization
 
 METHODS = ["cov", "data"]
 
@@ -204,3 +204,13 @@ def test_bad_input():
         ssi(rng.standard_normal(1000), 1.0, 50, block_rows=10)
     with pytest.raises(ValueError):
         ssi(rng.standard_normal(1000), -1.0, 4)
+
+
+def test_random_vibration_given_force():
+    f = np.zeros((200, 1))
+    f[0] = 1.0
+    y, omega = random_vibration(1.0, 0.1, 4.0, 0.05, 200, force=f)
+    # zero-order hold impulse: response of a unit force over [0, dt]
+    assert y[0, 0] == 0 and y[1, 0] > 0
+    y2, _ = random_vibration(1.0, 0.1, 4.0, 0.05, 200, force=2 * f)
+    np.testing.assert_allclose(y2, 2 * y)

@@ -16,7 +16,7 @@ from .pade import PadeResult, padeapprox, taylor_coeffs
 from .preprocessing import (FIRFilter, bandpass, detrend, highpass, lowpass,
                             remove_mean)
 from .signals import lorentzian, random_vibration, synthetic_signal
-from .ssi import (SSIResult, Stabilization, mac, output_correlation, ssi, ssi_cov,
+from .subspace import (SSIResult, Stabilization, mac, output_correlation, ssi, ssi_cov,
                   ssi_data, ssi_stabilization)
 
 __version__ = "1.0.0"

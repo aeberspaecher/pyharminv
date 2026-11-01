@@ -109,6 +109,28 @@ transients behind: the filtered signal is exactly the same sum of damped
 exponentials with amplitudes multiplied by the filter's response, which
 `correct` divides out. The price is the filter length in samples.
 
+### Noise-driven systems: stochastic subspace identification
+
+If the system cannot decay freely but is driven by unknown broadband noise
+(operational modal analysis), use stochastic subspace identification on
+the measured response, one column per channel:
+
+```python
+from pyharminv import ssi_cov, ssi_data, ssi_stabilization
+
+r = ssi_cov(y, dt, order=16, block_rows=40)       # covariance-driven SSI
+modes = r.select(max_rel_error=0.01, max_damping=0.2)
+modes.omega, modes.damping_ratio, modes.mode_shape
+
+ssi_data(y, dt, order=16, block_rows=40)          # data-driven SSI
+ssi_stabilization(y, dt, range(2, 61, 2)).plot()  # stabilization diagram
+```
+
+`SSIResult` is a `HarmInvResult` of the output correlation function (which
+decays like a free response for white-noise excitation), so `select`,
+`spectrum` and `reconstruct` work as usual, plus mode shapes, damping
+ratios, the model PSD and the MAC.
+
 ## Example
 
 `examples/lorentz_fit.py` fits twelve Lorentzian lines, including two closer
@@ -119,7 +141,7 @@ result:
 
 ## Notebooks
 
-`notebooks/` contains four illustrated, executed notebooks:
+`notebooks/` contains six illustrated, executed notebooks:
 
 * `01_harmonic_inversion_basics.ipynb`: damped cosines, recovered
   parameters, Lorentzian lines versus the Fourier spectrum, and two lines
@@ -139,6 +161,15 @@ result:
   spring chain, driving-point versus transfer responses, the clamped-system
   interpretation, a short noisy record where the FFT shows no dips, and
   why zeros need all modes (residual terms).
+* `05_stochastic_subspace_identification.ipynb`: modes of a system driven
+  by unknown broadband noise: why harmonic inversion of the raw response
+  fails and the correlation function helps, covariance-driven SSI step by
+  step, the stabilization diagram, mode shapes, the model spectrum and
+  data-driven SSI.
+* `06_choosing_an_identification_method.ipynb`: free decay with `harminv`
+  versus SSI of a random response, SSI-Cov versus SSI-Data (accuracy
+  versus record length, cost), closely spaced modes and several channels,
+  harmonic and coloured excitation, and a decision table.
 
 ```bash
 pip install -e .[examples]
@@ -187,6 +218,10 @@ The version is set in `src/pyharminv/__init__.py`; see `CHANGELOG.md`.
    **38**, 814 (1990).
 4. V. A. Mandelshtam and H. S. Taylor, J. Chem. Phys. **107**, 6756 (1997).
 5. M. R. Wall and D. Neuhauser, J. Chem. Phys. **102**, 8011 (1995).
+6. P. Van Overschee and B. De Moor, *Subspace Identification for Linear
+   Systems*, Kluwer (1996).
+7. B. Peeters and G. De Roeck, Mech. Syst. Signal Process. **13**, 855
+   (1999).
 
 ## License
 

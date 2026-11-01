@@ -89,7 +89,7 @@ def lorentzian(omega, center, fwhm, height=1.0):
 
 
 def random_vibration(M, C, K, dt, n_samples, input_dofs=None, output="displacement",
-                     force_std=1.0, noise=0.0, rng=None):
+                     force_std=1.0, noise=0.0, force=None, rng=None):
     """Response of a mechanical system ``M x'' + C x' + K x = f`` to random forces.
 
     The forces are white Gaussian noise, held constant over each sampling
@@ -115,6 +115,10 @@ def random_vibration(M, C, K, dt, n_samples, input_dofs=None, output="displaceme
     noise : float, optional
         Standard deviation of white measurement noise, relative to the
         standard deviation of each output channel.
+    force : array_like, optional
+        Use these force samples, shape ``(n_samples, len(input_dofs))``,
+        instead of white noise, e.g. coloured noise or noise plus a
+        harmonic component. ``force_std`` is ignored then.
     rng : numpy.random.Generator or int, optional
 
     Returns
@@ -143,7 +147,10 @@ def random_vibration(M, C, K, dt, n_samples, input_dofs=None, output="displaceme
     E = expm(np.block([[Ac, Bc], [np.zeros((p, n)), np.zeros((p, p))]]) * dt)
     Ad, Bd = E[:n, :n], E[:n, n:]
 
-    f = force_std * rng.standard_normal((n_samples, p))
+    if force is None:
+        f = force_std * rng.standard_normal((n_samples, p))
+    else:
+        f = np.asarray(force, dtype=float).reshape(n_samples, p)
     # diagonalise Ad for a fast simulation with lfilter, one mode at a time
     lam, V = np.linalg.eig(Ad)
     u = np.linalg.solve(V, Bd @ f.T)              # modal inputs, n x N
