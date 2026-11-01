@@ -32,5 +32,6 @@ Install from GitHub:
 
    usage
    theory
+   theory_ssi
    notebooks
    api
